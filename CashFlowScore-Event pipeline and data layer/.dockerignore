@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.pyo
+.git/
+data/pipeline.db
+data/pipeline.db-shm
+data/pipeline.db-wal
+*.log

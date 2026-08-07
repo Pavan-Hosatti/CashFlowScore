@@ -1,0 +1,1 @@
+"""Demo scripts for the CashFlowScore event pipeline."""

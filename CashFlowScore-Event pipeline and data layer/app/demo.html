@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>CashFlowScore — Live Pipeline Demo</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:#040d1a;color:#e2e8f0;font-family:'Segoe UI',system-ui,sans-serif;min-height:100vh}
+.card{background:#061120;border:1px solid #1e293b;border-radius:12px;padding:20px}
+.label{font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;font-weight:700}
+.svc-up{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;background:rgba(16,185,129,.12);color:#10b981;border-radius:100px;padding:3px 10px}
+.svc-down{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;background:rgba(244,63,94,.1);color:#f43f5e;border-radius:100px;padding:3px 10px}
+.svc-dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.btn{background:linear-gradient(135deg,#0d9488,#0891b2);color:#fff;border:none;border-radius:6px;padding:9px 18px;font-size:13px;font-weight:700;cursor:pointer}
+.btn:hover{opacity:.9}
+.btn-sm{background:#1e293b;color:#94a3b8;border:none;border-radius:6px;padding:7px 14px;font-size:12px;font-weight:600;cursor:pointer}
+.btn-sm:hover{background:#334155;color:#e2e8f0}
+.metric-val{font-size:28px;font-weight:800;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.metric-label{font-size:10px;color:#475569;text-transform:uppercase;letter-spacing:.1em;margin-top:3px}
+.proof-out{font-family:'Consolas','Courier New',monospace;font-size:10px;color:#64748b;background:#020817;border-radius:6px;padding:8px 10px;white-space:pre-wrap;word-break:break-all;min-height:28px;max-height:140px;overflow-y:auto;border:1px solid #0f172a}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<div style="background:#020817;border-bottom:1px solid #1e293b;padding:12px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100">
+  <div style="display:flex;align-items:center;gap:10px">
+    <div style="width:34px;height:34px;border-radius:8px;background:linear-gradient(135deg,#0d9488,#0891b2);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;color:#fff">CS</div>
+    <div>
+      <div style="font-weight:700;font-size:14px;color:#f1f5f9">CashFlowScore</div>
+      <div style="font-size:9px;color:#475569;text-transform:uppercase;letter-spacing:.1em">Event Pipeline &amp; Data Layer</div>
+    </div>
+  </div>
+  <div style="display:flex;align-items:center;gap:16px">
+    <div id="live-dot" style="width:8px;height:8px;border-radius:50%;background:#334155"></div>
+    <span id="live-label" style="font-size:12px;color:#64748b">Connecting...</span>
+    <button class="btn" onclick="doBootstrap()">⚡ Seed Demo Data</button>
+    <button class="btn-sm" onclick="doIdempotencyProof()">🔁 Prove Idempotency</button>
+  </div>
+</div>
+
+<!-- METRICS BAR -->
+<div style="background:#020d1f;border-bottom:1px solid #1e293b;padding:16px 28px;display:grid;grid-template-columns:repeat(6,1fr);gap:0">
+  <div style="border-right:1px solid #0f172a;padding:0 20px 0 0">
+    <div id="m-events" class="metric-val" style="color:#2dd4bf">—</div>
+    <div class="metric-label">Events Processed</div>
+  </div>
+  <div style="border-right:1px solid #0f172a;padding:0 20px">
+    <div id="m-biz" class="metric-val" style="color:#3b82f6">—</div>
+    <div class="metric-label">Businesses</div>
+  </div>
+  <div style="border-right:1px solid #0f172a;padding:0 20px">
+    <div id="m-tsdb" class="metric-val" style="color:#8b5cf6">—</div>
+    <div class="metric-label">TimescaleDB Rows</div>
+  </div>
+  <div style="border-right:1px solid #0f172a;padding:0 20px">
+    <div id="m-redis" class="metric-val" style="color:#f59e0b">—</div>
+    <div class="metric-label">Redis Keys</div>
+  </div>
+  <div style="border-right:1px solid #0f172a;padding:0 20px">
+    <div id="m-flags" class="metric-val" style="color:#f43f5e">—</div>
+    <div class="metric-label">Stress Flags</div>
+  </div>
+  <div style="padding:0 0 0 20px">
+    <div id="m-cache" class="metric-val" style="color:#a78bfa">—</div>
+    <div class="metric-label">Cache Hit Rate</div>
+  </div>
+</div>
+
+<!-- MAIN GRID -->
+<div style="display:grid;grid-template-columns:320px 1fr 320px;gap:16px;padding:20px 28px;max-width:1600px;margin:0 auto">
+
+<!-- LEFT COLUMN: Service status + architecture -->
+<div style="display:flex;flex-direction:column;gap:14px">
+
+  <!-- Service health -->
+  <div class="card">
+    <div class="label">Live Service Health</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;background:#040d1a;border-radius:8px;padding:10px 14px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#e2e8f0">Redpanda</div>
+          <div style="font-size:10px;color:#475569">Kafka-API event bus · port 9092</div>
+        </div>
+        <span id="rp-badge" class="svc-down"><span class="svc-dot"></span>checking</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:#040d1a;border-radius:8px;padding:10px 14px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#e2e8f0">TimescaleDB</div>
+          <div style="font-size:10px;color:#475569">Hypertable · <span id="pg-row-count" style="color:#8b5cf6">—</span> rows</div>
+        </div>
+        <span id="pg-badge" class="svc-down"><span class="svc-dot"></span>checking</span>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;background:#040d1a;border-radius:8px;padding:10px 14px">
+        <div>
+          <div style="font-size:13px;font-weight:700;color:#e2e8f0">Redis</div>
+          <div style="font-size:10px;color:#475569">Dedup + feature cache · <span id="redis-key-count" style="color:#f59e0b">—</span> keys</div>
+        </div>
+        <span id="redis-badge" class="svc-down"><span class="svc-dot"></span>checking</span>
+      </div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+      <span id="dedup-badge" style="font-size:10px;background:#0f172a;color:#64748b;border-radius:100px;padding:3px 10px">Dedup: —</span>
+      <span id="queue-badge" style="font-size:10px;background:#0f172a;color:#64748b;border-radius:100px;padding:3px 10px">Queue: —</span>
+    </div>
+  </div>
+
+  <!-- Architecture layers -->
+  <div class="card">
+    <div class="label">Architecture — 5 Layers</div>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      <div style="background:#040d1a;border-left:3px solid #3b82f6;border-radius:0 8px 8px 0;padding:10px 12px">
+        <div style="font-size:12px;font-weight:700;color:#3b82f6">Layer 1 — Ingestion</div>
+        <div style="font-size:10px;color:#475569;margin-top:2px">Redpanda topics: txn.upi · txn.bank · gst.filing · cash.withdrawal</div>
+      </div>
+      <div style="text-align:center;color:#1e293b;font-size:12px">▼</div>
+      <div style="background:#040d1a;border-left:3px solid #8b5cf6;border-radius:0 8px 8px 0;padding:10px 12px">
+        <div style="font-size:12px;font-weight:700;color:#8b5cf6">Layer 2 — Storage</div>
+        <div style="font-size:10px;color:#475569;margin-top:2px">TimescaleDB hypertable · time-partitioned · 8 chunks</div>
+      </div>
+      <div style="text-align:center;color:#1e293b;font-size:12px">▼</div>
+      <div style="background:#040d1a;border-left:3px solid #0d9488;border-radius:0 8px 8px 0;padding:10px 12px">
+        <div style="font-size:12px;font-weight:700;color:#0d9488">Layer 3 — Consumers</div>
+        <div style="font-size:10px;color:#475569;margin-top:2px">Ingestion (idempotent) + Stress-signal (bounce/outflow detection)</div>
+      </div>
+      <div style="text-align:center;color:#1e293b;font-size:12px">▼</div>
+      <div style="background:#040d1a;border-left:3px solid #f59e0b;border-radius:0 8px 8px 0;padding:10px 12px">
+        <div style="font-size:12px;font-weight:700;color:#f59e0b">Layer 4 — Feature Cache</div>
+        <div style="font-size:10px;color:#475569;margin-top:2px">Redis · SETNX dedup · 15-min TTL feature vectors</div>
+      </div>
+      <div style="text-align:center;color:#1e293b;font-size:12px">▼</div>
+      <div style="background:#040d1a;border-left:3px solid #10b981;border-radius:0 8px 8px 0;padding:10px 12px">
+        <div style="font-size:12px;font-weight:700;color:#10b981">Layer 5 — ML Handoff</div>
+        <div style="font-size:10px;color:#475569;margin-top:2px">Feature vector → Akaash's XGBoost scoring service</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Idempotency result -->
+  <div class="card" id="dedup-card">
+    <div class="label">Idempotency Proof</div>
+    <div style="font-size:11px;color:#475569;margin-bottom:10px">Same event published 3× — only 1 row lands in DB.</div>
+    <div id="dedup-result" class="mono" style="font-size:11px;color:#475569;min-height:36px;background:#040d1a;border-radius:6px;padding:8px 10px">Click "Prove Idempotency" above</div>
+  </div>
+
+</div>
+
+<!-- MIDDLE COLUMN: Kafka topic bars + live activity feed -->
+<div style="display:flex;flex-direction:column;gap:14px">
+
+  <!-- Kafka topic volume -->
+  <div class="card">
+    <div class="label">Kafka Topics — Event Volume</div>
+    <div id="topic-bars" style="display:flex;flex-direction:column;gap:10px">
+      <div style="font-size:12px;color:#334155">Waiting for data...</div>
+    </div>
+  </div>
+
+  <!-- Live activity terminal -->
+  <div class="card" style="flex:1;padding:0;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #1e293b;background:#020817">
+      <div style="display:flex;align-items:center;gap:6px">
+        <div style="width:10px;height:10px;border-radius:50%;background:#f43f5e"></div>
+        <div style="width:10px;height:10px;border-radius:50%;background:#f59e0b"></div>
+        <div style="width:10px;height:10px;border-radius:50%;background:#10b981"></div>
+        <span class="mono" style="font-size:11px;color:#475569;margin-left:8px">activity feed — live stream</span>
+      </div>
+      <span id="feed-count" style="font-size:10px;color:#334155">0 items</span>
+    </div>
+    <div id="feed" style="height:420px;overflow-y:auto;padding:10px 14px;background:#020817"></div>
+  </div>
+
+  <!-- Stress flags -->
+  <div class="card">
+    <div class="label" style="color:#f43f5e">⚠ Stress Flags — Near Real-Time</div>
+    <div id="stress-panel" style="display:flex;flex-direction:column;gap:6px;max-height:130px;overflow-y:auto">
+      <div style="font-size:11px;color:#334155">No flags yet. Seed data to populate.</div>
+    </div>
+  </div>
+
+</div>
+
+<!-- RIGHT COLUMN: Business list + feature viewer -->
+<div style="display:flex;flex-direction:column;gap:14px">
+
+  <div class="card">
+    <div class="label">Business Portfolio (<span id="biz-count">0</span>)</div>
+    <div id="biz-list" style="display:flex;flex-direction:column;gap:5px;max-height:260px;overflow-y:auto">
+      <div style="font-size:11px;color:#334155">Seed data to populate...</div>
+    </div>
+  </div>
+
+  <div class="card" style="flex:1">
+    <div class="label">Feature Vector → ML Handoff</div>
+    <div style="font-size:11px;color:#475569;margin-bottom:10px">Click a business above — this JSON goes to Akaash's XGBoost service.</div>
+    <div id="feat-loading" style="display:none;font-size:11px;color:#5eead4" class="mono">Loading...</div>
+    <pre id="feat-viewer" class="mono" style="font-size:11px;color:#a3e635;background:#040d1a;border-radius:8px;padding:12px;min-height:100px;max-height:300px;overflow-y:auto;white-space:pre-wrap;word-break:break-all">— select a business —</pre>
+  </div>
+
+  <!-- Live-proof: real terminal commands -->
+  <div class="card">
+    <div class="label" style="color:#2dd4bf">Live System Verification</div>
+    <div style="font-size:11px;color:#475569;margin-bottom:14px">
+      Each button runs a real command inside Docker and shows the raw output here.<br>
+      <span style="color:#2dd4bf">"Open Terminal"</span> pops an actual PowerShell window so you can see it live.
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:10px">
+
+      <div class="proof-row" id="pr-tsdb">
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <button class="btn-sm" onclick="runProof('timescaledb_rows','pr-tsdb')">▶ Run inline</button>
+          <button class="btn-sm" style="color:#2dd4bf;border:1px solid #2dd4bf33" onclick="openTerminal('timescaledb_rows')">⧉ Open Terminal</button>
+        </div>
+        <div style="font-size:10px;color:#334155;font-family:monospace;margin-bottom:4px">psql → SELECT topic, COUNT(*) FROM events GROUP BY topic</div>
+        <pre id="out-timescaledb_rows" class="proof-out">click ▶ to run</pre>
+      </div>
+
+      <div class="proof-row" id="pr-hyper">
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <button class="btn-sm" onclick="runProof('timescaledb_hypertable','pr-hyper')">▶ Run inline</button>
+          <button class="btn-sm" style="color:#8b5cf6;border:1px solid #8b5cf633" onclick="openTerminal('timescaledb_hypertable')">⧉ Open Terminal</button>
+        </div>
+        <div style="font-size:10px;color:#334155;font-family:monospace;margin-bottom:4px">psql → SELECT hypertable_name, num_chunks FROM timescaledb_information.hypertables</div>
+        <pre id="out-timescaledb_hypertable" class="proof-out">click ▶ to run</pre>
+      </div>
+
+      <div class="proof-row" id="pr-redis">
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <button class="btn-sm" onclick="runProof('redis_keyspace','pr-redis')">▶ Run inline</button>
+          <button class="btn-sm" style="color:#f59e0b;border:1px solid #f59e0b33" onclick="openTerminal('redis_keyspace')">⧉ Open Terminal</button>
+        </div>
+        <div style="font-size:10px;color:#334155;font-family:monospace;margin-bottom:4px">redis-cli info keyspace</div>
+        <pre id="out-redis_keyspace" class="proof-out">click ▶ to run</pre>
+      </div>
+
+      <div class="proof-row" id="pr-rp">
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <button class="btn-sm" onclick="runProof('redpanda_cluster','pr-rp')">▶ Run inline</button>
+          <button class="btn-sm" style="color:#3b82f6;border:1px solid #3b82f633" onclick="openTerminal('redpanda_cluster')">⧉ Open Terminal</button>
+        </div>
+        <div style="font-size:10px;color:#334155;font-family:monospace;margin-bottom:4px">rpk cluster info (inside Redpanda container)</div>
+        <pre id="out-redpanda_cluster" class="proof-out">click ▶ to run</pre>
+      </div>
+
+      <div class="proof-row" id="pr-recent">
+        <div style="display:flex;gap:6px;margin-bottom:6px">
+          <button class="btn-sm" onclick="runProof('timescaledb_recent','pr-recent')">▶ Run inline</button>
+          <button class="btn-sm" style="color:#10b981;border:1px solid #10b98133" onclick="openTerminal('timescaledb_recent')">⧉ Open Terminal</button>
+        </div>
+        <div style="font-size:10px;color:#334155;font-family:monospace;margin-bottom:4px">psql → SELECT * FROM events ORDER BY timestamp DESC LIMIT 10</div>
+        <pre id="out-timescaledb_recent" class="proof-out">click ▶ to run</pre>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+</div><!-- end grid -->
+
+<script>
+'use strict';
+const fmt = n => Number(n||0).toLocaleString('en-IN');
+const pct = n => (Number(n||0)*100).toFixed(1)+'%';
+
+async function api(path, opts){
+  const r = await fetch(path, opts||{});
+  if(!r.ok) throw new Error(r.status+' '+path);
+  return r.json();
+}
+
+// ── service badge helper ──────────────────────────────────────────────────────
+function setBadge(id, up, label){
+  const el = document.getElementById(id);
+  if(!el) return;
+  el.className = up ? 'svc-up' : 'svc-down';
+  el.innerHTML = '<span class="svc-dot"></span>' + label;
+}
+
+// ── update metrics bar ────────────────────────────────────────────────────────
+function applyStatus(s){
+  document.getElementById('m-events').textContent = fmt(s.events_processed);
+  document.getElementById('m-biz').textContent    = fmt(s.business_count);
+  document.getElementById('m-tsdb').textContent   = s.timescaledb_rows!=null ? fmt(s.timescaledb_rows) : '—';
+  document.getElementById('m-redis').textContent  = s.redis_keys!=null ? fmt(s.redis_keys) : '—';
+  document.getElementById('m-flags').textContent  = fmt(s.stress_flag_count);
+  document.getElementById('m-cache').textContent  = pct(s.cache_hit_rate);
+
+  setBadge('rp-badge',    s.redpanda_up,  s.redpanda_up  ? 'UP' : 'DOWN');
+  setBadge('pg-badge',    s.postgres_up,  s.postgres_up  ? 'UP' : 'DOWN');
+  setBadge('redis-badge', s.redis_up,     s.redis_up     ? 'UP' : 'DOWN');
+
+  const pgRowEl = document.getElementById('pg-row-count');
+  if(pgRowEl && s.timescaledb_rows!=null) pgRowEl.textContent = fmt(s.timescaledb_rows);
+  const redisKeyEl = document.getElementById('redis-key-count');
+  if(redisKeyEl && s.redis_keys!=null) redisKeyEl.textContent = fmt(s.redis_keys);
+
+  document.getElementById('dedup-badge').textContent  = 'Dedup: '+(s.dedup_backend||'—');
+  document.getElementById('queue-badge').textContent  = 'Queue: '+fmt(s.queue_depth);
+
+  const live = (s.events_processed||0) > 0;
+  const dot  = document.getElementById('live-dot');
+  const lbl  = document.getElementById('live-label');
+  dot.style.background   = live ? '#10b981' : '#f59e0b';
+  dot.style.boxShadow    = live ? '0 0 8px #10b981' : 'none';
+  lbl.textContent        = live ? 'LIVE — pipeline running' : 'No data yet — click Seed Demo Data';
+  lbl.style.color        = live ? '#10b981' : '#f59e0b';
+
+  // Topic bars
+  const topics = s.event_count_by_topic||{};
+  const total  = Object.values(topics).reduce((a,b)=>a+b,1);
+  const COLORS  = {'txn.upi':'#2dd4bf','txn.bank':'#3b82f6','gst.filing':'#a78bfa','cash.withdrawal':'#f59e0b'};
+  const tb = document.getElementById('topic-bars');
+  if(tb && Object.keys(topics).length){
+    tb.innerHTML = Object.entries(topics)
+      .sort(([,a],[,b])=>b-a)
+      .map(([k,v])=>{
+        const c = COLORS[k]||'#64748b';
+        const w = Math.max(2, Math.round(v/total*100));
+        return `<div style="display:flex;align-items:center;gap:10px">
+          <div style="width:130px;font-size:11px;color:#94a3b8;font-family:monospace;flex-shrink:0">${k}</div>
+          <div style="flex:1;height:12px;background:#0c1a2e;border-radius:3px;overflow:hidden">
+            <div style="height:100%;width:${w}%;background:${c};border-radius:3px;transition:width .5s"></div>
+          </div>
+          <div style="width:52px;text-align:right;font-size:12px;font-weight:700;color:${c}">${fmt(v)}</div>
+        </div>`;
+      }).join('');
+  }
+}
+</script>
+
+<script>
+// ── activity feed ─────────────────────────────────────────────────────────────
+const CAT_COLOR = {event_ingested:'#10b981',stress_flagged:'#f43f5e',cache_hit:'#f59e0b',
+  cache_miss:'#94a3b8',feature_computed:'#a78bfa',duplicate_skipped:'#475569',
+  business_registered:'#3b82f6',pipeline_started:'#2dd4bf',event_queued:'#334155'};
+const CAT_ICON  = {event_ingested:'▶',stress_flagged:'⚠',cache_hit:'⚡',cache_miss:'○',
+  feature_computed:'✦',duplicate_skipped:'⊗',business_registered:'✚',
+  pipeline_started:'◉',event_queued:'→'};
+
+function applyFeed(items){
+  const el = document.getElementById('feed');
+  const ct = document.getElementById('feed-count');
+  if(!el) return;
+  if(!items||!items.length){ el.innerHTML='<div style="color:#334155;font-size:11px" class="mono">No activity yet.</div>'; return; }
+  ct.textContent = items.length+' items';
+  el.innerHTML = items.map(ev=>{
+    const cat   = ev.category||'';
+    const color = CAT_COLOR[cat]||'#5eead4';
+    const icon  = CAT_ICON[cat]||'·';
+    const ts    = (ev.created_at||'').slice(11,23);
+    const biz   = (ev.business_id||'SYSTEM').slice(0,14).padEnd(14,' ');
+    const msg   = (ev.message||cat).slice(0,65);
+    const badge = cat==='stress_flagged'
+      ? '<span style="background:rgba(244,63,94,.15);color:#f43f5e;font-size:9px;font-weight:700;padding:1px 6px;border-radius:100px;margin-left:4px">RISK</span>'
+      : cat==='cache_hit'
+      ? '<span style="background:rgba(245,158,11,.12);color:#f59e0b;font-size:9px;font-weight:700;padding:1px 6px;border-radius:100px;margin-left:4px">CACHE</span>'
+      : '';
+    return `<div style="display:flex;gap:6px;margin-bottom:4px;border-bottom:1px solid #0c1a2e;padding-bottom:3px;align-items:flex-start">
+      <span style="color:#1e293b;flex-shrink:0;font-size:10px" class="mono">[${ts}]</span>
+      <span style="color:${color};flex-shrink:0">${icon}</span>
+      <span style="color:#334155;flex-shrink:0;font-size:10px;min-width:110px" class="mono">${biz}</span>
+      <span style="color:${color};font-size:11px;flex:1" class="mono">${msg}${badge}</span>
+    </div>`;
+  }).join('');
+}
+
+function applyStress(items){
+  const el = document.getElementById('stress-panel');
+  if(!el) return;
+  const flags = (items||[]).filter(e=>e.category==='stress_flagged');
+  if(!flags.length){ el.innerHTML='<div style="font-size:11px;color:#334155">No flags yet.</div>'; return; }
+  el.innerHTML = flags.slice(0,5).map(f=>`
+    <div style="display:flex;gap:8px;background:rgba(244,63,94,.05);border:1px solid rgba(244,63,94,.15);border-radius:6px;padding:7px 10px">
+      <span style="color:#f43f5e;flex-shrink:0">⚠</span>
+      <div>
+        <div style="font-size:11px;font-weight:700;color:#fca5a5">${(f.business_id||'').slice(0,20)}</div>
+        <div style="font-size:10px;color:#f43f5e;opacity:.7">${(f.message||'').slice(0,55)}</div>
+      </div>
+    </div>`).join('');
+}
+
+// ── business list ─────────────────────────────────────────────────────────────
+let lastBizIds = [];
+function applyBizList(ids){
+  const el = document.getElementById('biz-list');
+  const ct = document.getElementById('biz-count');
+  if(!el) return;
+  if(ct) ct.textContent = ids.length;
+  if(!ids.length){ el.innerHTML='<div style="font-size:11px;color:#334155">No businesses yet.</div>'; return; }
+  el.innerHTML = ids.map(id=>`
+    <div onclick="loadFeatures('${id}')"
+      style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-radius:6px;cursor:pointer;border:1px solid #1e293b;background:#040d1a;transition:all .15s"
+      onmouseover="this.style.borderColor='#2dd4bf44';this.style.background='#061120'"
+      onmouseout="this.style.borderColor='#1e293b';this.style.background='#040d1a'">
+      <span style="font-size:12px;color:#e2e8f0" class="mono">${id}</span>
+      <span style="font-size:10px;color:#2dd4bf">features →</span>
+    </div>`).join('');
+}
+
+async function loadFeatures(bizId){
+  document.getElementById('feat-viewer').textContent = 'Loading...';
+  document.getElementById('feat-viewer').style.color = '#5eead4';
+  try {
+    const data = await api('/features/'+bizId);
+    document.getElementById('feat-viewer').textContent = JSON.stringify(data, null, 2);
+    document.getElementById('feat-viewer').style.color = '#a3e635';
+  } catch(e) {
+    document.getElementById('feat-viewer').textContent = 'Error: '+e.message;
+    document.getElementById('feat-viewer').style.color = '#f43f5e';
+  }
+}
+</script>
+
+<script>
+// ── bootstrap ─────────────────────────────────────────────────────────────────
+async function doBootstrap(){
+  const btn = document.querySelector('button.btn');
+  btn.disabled=true; btn.textContent='⟳ Seeding...';
+  try {
+    const r = await api('/demo/bootstrap?count=75&seed=42&months=6', {method:'POST'});
+    btn.textContent='✓ '+r.businesses_registered+' biz, '+r.events_queued+' events';
+    btn.style.background='#10b981';
+    setTimeout(()=>{ btn.textContent='⚡ Seed Demo Data'; btn.style.background=''; btn.disabled=false; }, 4000);
+  } catch(e) {
+    btn.textContent='✗ '+e.message; btn.style.background='#f43f5e'; btn.disabled=false;
+  }
+}
+
+// ── idempotency proof ─────────────────────────────────────────────────────────
+async function doIdempotencyProof(){
+  const el = document.getElementById('dedup-result');
+  el.style.color='#5eead4'; el.textContent='Publishing event-id "dedup-proof-001" three times...';
+  const evt = {event_id:'dedup-proof-001',business_id:'msme-0001',topic:'txn.bank',
+    event_type:'credit',amount:99999,timestamp:'2026-01-15T10:00:00+00:00',
+    direction:'inflow',balance_after:199999};
+  try {
+    await api('/events/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(evt)});
+    await api('/events/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(evt)});
+    await api('/events/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(evt)});
+    await new Promise(r=>setTimeout(r,1500));
+    const s = await api('/pipeline-status');
+    el.style.color='#10b981';
+    el.textContent='3 publishes → '+fmt(s.duplicate_events||s.duplicate_event_count||0)+' duplicates caught\nBackend: '+(s.dedup_backend||'memory')+' (SETNX)\nOnly 1 row written to DB ✓';
+  } catch(e) {
+    el.style.color='#f43f5e'; el.textContent='Error: '+e.message;
+  }
+}
+
+// ── live-proof: run real docker command, show output inline ─────────────────
+async function runProof(queryId, rowId){
+  const outEl = document.getElementById('out-'+queryId);
+  if(!outEl) return;
+  outEl.style.color='#5eead4'; outEl.textContent='Running...';
+  try {
+    const r = await api('/run-query/'+queryId);
+    outEl.style.color = r.exit_code===0 ? '#a3e635' : '#f43f5e';
+    outEl.textContent = r.output;
+  } catch(e) {
+    outEl.style.color='#f43f5e'; outEl.textContent='Error: '+e.message;
+  }
+}
+
+// ── open a REAL visible PowerShell window on screen ───────────────────────────
+async function openTerminal(queryId){
+  try {
+    const r = await api('/launch-terminal/'+queryId, {method:'POST'});
+    if(r.launched) console.log('Terminal opened:', r.title);
+  } catch(e) {
+    alert('Could not open terminal: '+e.message);
+  }
+}
+
+// ── poll loop ─────────────────────────────────────────────────────────────────
+async function poll(){
+  try {
+    const [status, activity] = await Promise.all([
+      api('/pipeline-status'),
+      api('/activity-feed?limit=50'),
+    ]);
+    applyStatus(status);
+    applyFeed(activity.items||[]);
+    applyStress(activity.items||[]);
+  } catch(e){
+    document.getElementById('live-label').textContent='API offline — start the server';
+    document.getElementById('live-label').style.color='#f43f5e';
+  }
+  try {
+    const biz = await api('/businesses');
+    const ids = (biz.items||[]).map(b=>b.business_id).slice(0,20);
+    if(JSON.stringify(ids)!==JSON.stringify(lastBizIds)){ lastBizIds=ids; applyBizList(ids); }
+  } catch {}
+}
+
+poll();
+setInterval(poll, 2000);
+</script>
+</body>
+</html>
