@@ -1,0 +1,113 @@
+# ─── Python ───────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+pip-wheel-metadata/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env.local
+
+# ─── Node / Frontend ──────────────────────────────────────────────────────────
+node_modules/
+dist/
+.next/
+out/
+.nuxt/
+*.tsbuildinfo
+
+# ─── Environment & Secrets ────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# ─── Database files ───────────────────────────────────────────────────────────
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# ─── Docker artifacts ─────────────────────────────────────────────────────────
+.docker/
+docker-data/
+
+# ─── Temporary & OS files ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+.tmp.drivedownload/
+.tmp.driveupload/
+*.tmp
+
+# ─── IDE & Editor ─────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.pyrefly.json
+pyrefly.json
+
+# ─── Logs ─────────────────────────────────────────────────────────────────────
+*.log
+logs/
+*.out
+
+# ─── Data & Output files (large/generated) ────────────────────────────────────
+CashFlowScore-ML/data/synthetic_msme_data.csv
+CashFlowScore-ML/data/scored_output.xlsx
+CashFlowScore-ML/offline/scored_output.xlsx
+CashFlowScore-ML/test_output.xlsx
+sample_portfolio_1000.csv
+example-list.csv
+
+# ─── Presentation & internal working docs (keep out of repo) ──────────────────
+DEPLOYMENT_GUIDE.md
+DOCKER_HUB_COMPLETE.md
+DOCKER_HUB_SUCCESS.md
+PRESENTATION_CHECKLIST.md
+PRESENTATION_QUICK_START.md
+PRESENTATION_README.md
+QUICK_REFERENCE.md
+SETUP_GUIDE.md
+START_HERE.md
+WHAT_WE_BUILT.md
+Ideathon_Pitch_Script.md
+"CashFlowScore_Team_Build_Prompts_Final (1).md"
+QUICK_START.ps1
+
+# ─── Jupyter ──────────────────────────────────────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ─── Coverage & Testing ───────────────────────────────────────────────────────
+.coverage
+htmlcov/
+.pytest_cache/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
