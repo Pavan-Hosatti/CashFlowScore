@@ -214,8 +214,9 @@ All scoring is based on these 11 features computed from live financial events:
 | Name | Module |
 |---|---|
 | Pavan Hosatti | Event Pipeline & Data Layer |
-| Akaash | ML Scoring Engine |
+| Akash | ML Scoring Engine |
 | Nikita | Frontend & Gateway API |
+| Anand | Data cleaning and documentation |
 
 ---
 
