@@ -81,8 +81,8 @@ CashFlowScore-ML/data/synthetic_msme_data.csv
 CashFlowScore-ML/data/scored_output.xlsx
 CashFlowScore-ML/offline/scored_output.xlsx
 CashFlowScore-ML/test_output.xlsx
-sample_portfolio_1000.csv
-example-list.csv
+# sample_portfolio_1000.csv  ← kept in repo for demo
+# example-list.csv           ← kept in repo for demo
 
 # ─── Presentation & internal working docs (keep out of repo) ──────────────────
 DEPLOYMENT_GUIDE.md
